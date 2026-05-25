@@ -25,8 +25,30 @@ KernelFunctionName<<< GridDimensions, BlockDimensions >>>(Arguments)
 */
 
 __global__
-void add_kernel(void* A_d,void* B_d,void* C_d,int n){
-    int i = blockIdx.x
+void add_kernel(float* A_d,float* B_d,float* C_d,int n){
+    int i = blockIdx.x*blockDim.x + threadIdx.x;
+    if(i < n){
+        C_d[i] = A_d[i] + B_d[i];
+    }
+}
+
+void vec_add_device(float* A_h,float* B_h,float* C_h,int n){
+    float *A_d,*B_d,*C_d;
+    
+    cudaMalloc((void**)&A_d,n*sizeof(float));
+    cudaMalloc((void**)&B_d,n*sizeof(float));
+    cudaMalloc((void**)&C_d,n*sizeof(float));
+
+    cudaMemcpy(A_d,A_h,n*sizeof(float),cudaMemcpyHostToDevice);
+    cudaMemcpy(B_d,B_h,n*sizeof(float),cudaMemcpyHostToDevice);
+
+    add_kernel<<<ceil(n/256.0), 256>>>(A_d,B_d,C_d,n);
+
+    cudaMemcpy(C_h,C_d,n*sizeof(float),cudaMemcpyDeviceToHost);
+
+    cudaFree(A_d);
+    cudaFree(B_d);
+    cudaFree(C_d);
 }
 
 void main(){
@@ -34,7 +56,7 @@ void main(){
     float B_h[] = {0.4,0.5,0.6};
     float C_h[3];
 
-    vec_add_host(A_h,B_h,C_h,3);
+    vec_add_device(A_h,B_h,C_h,3);
 
     for(int i=0;i < 3;i++){
         printf("%f ",C_h[i]);
